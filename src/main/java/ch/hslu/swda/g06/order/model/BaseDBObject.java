@@ -3,7 +3,12 @@ package ch.hslu.swda.g06.order.model;
 public class BaseDBObject {
     private long eTag;
 
+    public BaseDBObject(final long eTag) {
+        this.eTag = eTag;
+    }
+
     public BaseDBObject() {
+
     }
 
     public long getEtag() {
