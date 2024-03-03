@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import ch.hslu.swda.g06.order.model.timeprovider.ITimeProvider;
 
-public class BaseDBObjectTest {
+class BaseDBObjectTest {
     private BaseDBObject baseDBObject;
     private ITimeProvider timeProvider;
     private long eTag;
