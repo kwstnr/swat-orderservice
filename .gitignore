@@ -1,1 +1,17 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+### IDE-specific ###
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.code-workspace
+*.class
+*.project
+*.settings/
+
+### OS-specific ###
 .DS_Store
+Thumbs.db
