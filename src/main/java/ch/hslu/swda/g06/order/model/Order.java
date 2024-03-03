@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import ch.hslu.swda.g06.order.model.timeprovider.SystemTimeProvider;
+
 @Document(collection = "orders")
 public class Order extends BaseDBObject implements Serializable {
     @Id
@@ -24,7 +26,7 @@ public class Order extends BaseDBObject implements Serializable {
 
     public Order(final String customerId, final String employeeId,
             final String filialId, final List<OrderArticle> articles) {
-        super();
+        super(new SystemTimeProvider());
         this.orderId = UUID.randomUUID().toString();
         this.customerId = new VerifyableProperty<String>(customerId);
         this.employeeId = employeeId;
@@ -45,7 +47,7 @@ public class Order extends BaseDBObject implements Serializable {
     }
 
     public Order() {
-        super();
+        super(new SystemTimeProvider());
     }
 
     public String getOrderId() {

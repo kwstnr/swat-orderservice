@@ -154,12 +154,6 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>ch.hslu.swda</groupId>
-                <artifactId>swda_stock</artifactId>
-                <version>8.1.0</version>
-                <scope>compile</scope>
-            </dependency>
-            <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
                 <version>${slf4j.version}</version>
@@ -254,6 +248,13 @@
     </dependencyManagement>
 
     <dependencies>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.11.0</version>
+        </dependency>
+
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
