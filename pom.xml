@@ -98,10 +98,8 @@
     </ciManagement>
 
     <properties>
-        <!-- VM-Args (z.B. Memory-Settings) für Unit- und Integrationstests. -->
         <argLine>-Xms512m -Xmx1g -Xss10m</argLine>
 
-        <!-- TODO: Hier ggf. andere Startklasse anpassen! -->
         <jar.start.class>ch.hslu.swda.g06.order.Main</jar.start.class>
         <exec.mainClass>${jar.start.class}</exec.mainClass>
 
