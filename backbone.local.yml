@@ -1,12 +1,6 @@
 version: "3.5"
 
 networks:
-  ingress:
-    name: traefik-public
-    external: true
-  bus:
-    name: bus
-    external: true
   internal-orderservice:
     name: internal-orderservice
 
@@ -19,8 +13,13 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: "root"
     networks:
       - internal-orderservice
-  bus:
-    image: rabbitmq:3.8-management
+    ports:
+      - "27017:27017"
+
+  rabbitmq:
+    image: rabbitmq:management
+    hostname: rabbitmq
+    container_name: "rabbitmq"
     restart: always
     environment:
       RABBITMQ_DEFAULT_USER: "admin"
