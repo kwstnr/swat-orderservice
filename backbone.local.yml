@@ -22,6 +22,9 @@ services:
   bus:
     image: rabbitmq:3.8-management
     restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "adminpassword"
     ports:
       - "8082:15672"
       - "5672:5672"
