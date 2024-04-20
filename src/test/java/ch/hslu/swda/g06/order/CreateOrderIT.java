@@ -35,6 +35,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
+import ch.hslu.swda.g06.order.Logging.model.Log;
 import ch.hslu.swda.g06.order.model.CreateOrderDto;
 import ch.hslu.swda.g06.order.model.Order;
 import ch.hslu.swda.g06.order.model.OrderArticle;
@@ -97,6 +98,7 @@ class CreateOrderIT {
         amqpAdmin.declareQueue(new Queue("article.verify", false));
         amqpAdmin.declareQueue(new Queue("user.verify", false));
         amqpAdmin.declareQueue(new Queue("order.created", false));
+        amqpAdmin.declareQueue(new Queue("log.post", false));
     }
 
     @AfterEach
@@ -216,7 +218,32 @@ class CreateOrderIT {
                 "ArticleId should match");
         assertEquals(article.getAmount(), verifyPropertyDto.getPropertyValue().get(0).getAmount(),
                 "Amount should match");
-        assertEquals(article.getUnitPrice(), verifyPropertyDto.getPropertyValue().get(0).getUnitPrice(),
-                "UnitPrice should match");
+        assertEquals(article.getUnitPrice(), verifyPropertyDto.getPropertyValue().get(0).getUnitPrice(), "UnitPrice should match");
+    }
+     
+
+    
+     @Test
+    void createOrderITLogMessageSent() {
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId("correlationId");
+        messageProperties.setReplyTo("order.created");
+        messageProperties.setContentType("application/json");
+
+        OrderArticle article = new OrderArticle("articleId", 12, 2);
+        CreateOrderDto createOrderDto = new CreateOrderDto("customerId", "employeeId", List.of(article), "filialId");
+        String body = gson.toJson(createOrderDto);
+
+        Message message = new Message(body.getBytes(), messageProperties);
+
+        rabbitTemplate.convertAndSend("swda", "order.post", message);
+
+        Message createLogMessage = rabbitTemplate.receive("log.post", 5000);
+        Log log = gson.fromJson(new String(createLogMessage.getBody(), StandardCharsets.UTF_8), Log.class);
+
+        assertNotNull(log);
+        assertEquals(createOrderDto.getFilialId(), log.getStoreId(), "FilialId should match");
+        assertEquals("Order created", log.getAction().getAction(), "Action should be Order created");
+        assertEquals("order", log.getAction().getEntityName(), "EntityName should be order");
     }
 }
