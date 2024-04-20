@@ -32,6 +32,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
 import ch.hslu.swda.g06.order.model.CreateOrderDto;
@@ -39,12 +40,15 @@ import ch.hslu.swda.g06.order.model.Order;
 import ch.hslu.swda.g06.order.model.OrderArticle;
 import ch.hslu.swda.g06.order.model.OrderState;
 import ch.hslu.swda.g06.order.model.VerifyPropertyDto;
+import ch.hslu.swda.g06.order.model.timeprovider.ITimeProvider;
+import ch.hslu.swda.g06.order.model.timeprovider.TimeProviderInstanceCreator;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
 @Testcontainers
 class CreateOrderIT {
-    private static final Gson gson = new Gson();
+    private static final GsonBuilder gsonBuilder = new GsonBuilder();
+    private static Gson gson;
 
     @Container
     private static final MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:4.2.5");
@@ -75,6 +79,12 @@ class CreateOrderIT {
 
     @Autowired
     private MongoTemplate mongoTemplate;
+
+    @BeforeEach
+    void setupGson() {
+        gsonBuilder.registerTypeAdapter(ITimeProvider.class, new TimeProviderInstanceCreator());
+        gson = gsonBuilder.create();
+    }
 
     @BeforeEach
     void setupSwdaExchange() {
@@ -109,7 +119,6 @@ class CreateOrderIT {
 
         OrderArticle article = new OrderArticle("articleId", 12, 2);
         CreateOrderDto createOrderDto = new CreateOrderDto("customerId", "employeeId", List.of(article), "filialId");
-        Gson gson = new Gson();
         String body = gson.toJson(createOrderDto);
 
         Message message = new Message(body.getBytes(), messageProperties);
@@ -130,6 +139,33 @@ class CreateOrderIT {
     }
 
     @Test
+    void createOrderITOrderCreatedMessage() {
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId("correlationId");
+        messageProperties.setReplyTo("order.created");
+        messageProperties.setContentType("application/json");
+
+        OrderArticle article = new OrderArticle("articleId", 12, 2);
+        CreateOrderDto createOrderDto = new CreateOrderDto("customerId", "employeeId", List.of(article), "filialId");
+        String body = gson.toJson(createOrderDto);
+
+        Message message = new Message(body.getBytes(), messageProperties);
+
+        rabbitTemplate.convertAndSend("swda", "order.post", message);
+
+        Message orderCreatedMessage = rabbitTemplate.receive("order.created", 5000);
+        Order createdOrder = gson.fromJson(new String(orderCreatedMessage.getBody(), StandardCharsets.UTF_8),
+                Order.class);
+
+        assertNotNull(createdOrder);
+        assertEquals(createOrderDto.getCustomerId(), createdOrder.getCustomerId(), "CustomerId should match");
+        assertEquals(createOrderDto.getEmployeeId(), createdOrder.getEmployeeId(), "EmployeeId should match");
+        assertEquals(createOrderDto.getFilialId(), createdOrder.getFilialId(), "FilialId should match");
+        assertEquals(24, createdOrder.getTotalPrice(), "TotalPrice should match");
+        assertEquals(OrderState.Bestellt, createdOrder.getState(), "OrderState should be Bestellt");
+    }
+
+    @Test
     void createOrderITVerifyUserMessageSent() {
         MessageProperties messageProperties = new MessageProperties();
         messageProperties.setCorrelationId("correlationId");
@@ -138,7 +174,6 @@ class CreateOrderIT {
 
         OrderArticle article = new OrderArticle("articleId", 12, 2);
         CreateOrderDto createOrderDto = new CreateOrderDto("customerId", "employeeId", List.of(article), "filialId");
-        Gson gson = new Gson();
         String body = gson.toJson(createOrderDto);
 
         Message message = new Message(body.getBytes(), messageProperties);
@@ -163,7 +198,6 @@ class CreateOrderIT {
 
         OrderArticle article = new OrderArticle("articleId", 12, 2);
         CreateOrderDto createOrderDto = new CreateOrderDto("customerId", "employeeId", List.of(article), "filialId");
-        Gson gson = new Gson();
         String body = gson.toJson(createOrderDto);
 
         Message message = new Message(body.getBytes(), messageProperties);
