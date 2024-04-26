@@ -1,10 +1,12 @@
 package ch.hslu.swda.g06.order.model;
 
 public class DeleteOrderDto {
-    private String orderId;
-    private long eTag;
+    private final String orderId;
+    private final long eTag;
 
-    public DeleteOrderDto() {
+    private DeleteOrderDto(String orderId, long eTag) {
+        this.orderId = orderId;
+        this.eTag = eTag;
     }
 
     public String getOrderId() {
@@ -13,5 +15,19 @@ public class DeleteOrderDto {
 
     public long getETag() {
         return this.eTag;
+    }
+
+    public static class Builder {
+        public static OrderId builder() {
+            return orderId -> eTag -> new DeleteOrderDto(orderId, eTag);
+        }
+
+        public interface OrderId {
+            ETag withOrderId(String orderId);
+        }
+
+        public interface ETag {
+            DeleteOrderDto withETag(long eTag);
+        }
     }
 }
