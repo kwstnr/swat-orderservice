@@ -1,9 +1,13 @@
 package ch.hslu.swda.g06.order;
 
+import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +34,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import ch.hslu.swda.g06.order.model.DeleteOrderDto;
+import ch.hslu.swda.g06.order.model.Order;
 import ch.hslu.swda.g06.order.model.timeprovider.ITimeProvider;
 import ch.hslu.swda.g06.order.model.timeprovider.TimeProviderInstanceCreator;
 
@@ -85,6 +90,7 @@ class AnnulateOrderIT {
         amqpAdmin.declareQueue(new Queue("order.delete", false));
         amqpAdmin.declareQueue(new Queue("order.deleted", false));
         amqpAdmin.declareQueue(new Queue("articles.orderDeleted", false));
+        amqpAdmin.declareQueue(new Queue("log.post", false));
     }
 
     @AfterEach
@@ -111,11 +117,43 @@ class AnnulateOrderIT {
         rabbitTemplate.send("order.delete", message);
 
         Message orderDeletedResponse = rabbitTemplate.receive("order.deleted", 5000);
-        Message articlesOrderDeletedResponse = rabbitTemplate.receive("articles.orderDeleted", 5000);
+        Message articlesOrderDeletedResponse = rabbitTemplate.receive("articles.orderDeleted", 500);
+        Message orderDeletedLogMessage = rabbitTemplate.receive("log.post", 500);
 
         assertNotNull(orderDeletedResponse);
         new String(orderDeletedResponse.getBody()).equals("false");
         assertNull(articlesOrderDeletedResponse);
+        assertNull(orderDeletedLogMessage);
+    }
 
+    @Test
+    void AnnulateOrderITWithoutMatchingETag() {
+        Order order = new Order("customerId", "employeeId", "filialId", List.of());
+        mongoTemplate.save(order);
+
+        DeleteOrderDto deleteOrderDto = DeleteOrderDto.Builder.builder().withOrderId(order.getOrderId())
+                .withETag(1234l);
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId("correlationId");
+        messageProperties.setReplyTo("order.deleted");
+        messageProperties.setContentType("application/json");
+        String body = gson.toJson(deleteOrderDto);
+        Message message = new Message(body.getBytes(), messageProperties);
+
+        rabbitTemplate.send("order.delete", message);
+
+        Message orderDeletedResponse = rabbitTemplate.receive("order.deleted", 5000);
+        Message articlesOrderDeletedResponse = rabbitTemplate.receive("articles.orderDeleted", 500);
+        Message orderDeletedLogMessage = rabbitTemplate.receive("log.post", 500);
+
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+            Order deletedOrder = mongoTemplate.findById(order.getOrderId(), Order.class);
+            assertNotNull(deletedOrder);
+            assertEquals(order.getState(), deletedOrder.getState());
+        });
+        assertNotNull(orderDeletedResponse);
+        new String(orderDeletedResponse.getBody()).equals("false");
+        assertNull(articlesOrderDeletedResponse);
+        assertNull(orderDeletedLogMessage);
     }
 }
