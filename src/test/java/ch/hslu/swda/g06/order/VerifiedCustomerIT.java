@@ -1,11 +1,13 @@
 package ch.hslu.swda.g06.order;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +35,7 @@ import com.google.gson.GsonBuilder;
 
 import ch.hslu.swda.g06.order.Logging.model.Log;
 import ch.hslu.swda.g06.order.model.Order;
+import ch.hslu.swda.g06.order.model.OrderState;
 import ch.hslu.swda.g06.order.model.Reason;
 import ch.hslu.swda.g06.order.model.VerifyPropertyDto;
 import ch.hslu.swda.g06.order.model.timeprovider.ITimeProvider;
@@ -192,5 +195,48 @@ class VerifiedCustomerIT {
                 log.getAction().getAction());
         assertEquals("order", log.getAction().getEntityName());
         assertEquals(order.getOrderId(), log.getAction().getEntityId());
+    }
+
+    @Test
+    void VerifyCustomerITOrderConfirmed() {
+        Order order = new Order("customerId", "employeeId", "filialId", List.of());
+        mongoTemplate.save(order);
+
+        VerifyPropertyDto<String> verifyPropertyDto = VerifyPropertyDto.Builder.<String>builder()
+                .withOrderId(order.getOrderId())
+                .withPropertyValue(order.getCustomerId())
+                .withVerified(true)
+                .withoutReason();
+
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId("correlationId");
+        messageProperties.setContentType("application/json");
+
+        String body = gson.toJson(verifyPropertyDto);
+        Message message = new Message(body.getBytes(), messageProperties);
+
+        rabbitTemplate.send("order.verifyCustomer", message);
+
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+            Order updatedOrder = mongoTemplate.findById(order.getOrderId(), Order.class);
+            assertNotNull(updatedOrder);
+            assertEquals(OrderState.Bestätigt, updatedOrder.getState());
+        });
+
+        Message orderConfirmationMessage = rabbitTemplate.receive("mail.confirmation", 500);
+        Message orderBillMessage = rabbitTemplate.receive("bill.create", 500);
+        Message orderFailedLogMessage = rabbitTemplate.receive("log.post", 1000);
+
+        assertNotNull(orderConfirmationMessage);
+        Order confirmedOrder = gson.fromJson(new String(orderConfirmationMessage.getBody()), Order.class);
+        assertEquals(order.getOrderId(), confirmedOrder.getOrderId());
+        assertEquals(OrderState.Bestätigt, confirmedOrder.getState());
+
+        assertNotNull(orderBillMessage);
+        Order billedOrder = gson.fromJson(new String(orderBillMessage.getBody()), Order.class);
+        assertEquals(order.getOrderId(), billedOrder.getOrderId());
+        assertEquals(OrderState.Bestätigt, billedOrder.getState());
+
+        assertNull(orderFailedLogMessage);
     }
 }
