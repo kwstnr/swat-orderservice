@@ -40,7 +40,7 @@ import ch.hslu.swda.g06.order.model.timeprovider.TimeProviderInstanceCreator;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
 @Testcontainers
-class GetOrderIt {
+class GetOrderIT {
     private static final GsonBuilder gsonBuilder = new GsonBuilder();
     private static Gson gson;
 
