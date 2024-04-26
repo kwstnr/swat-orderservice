@@ -3,7 +3,6 @@ package ch.hslu.swda.g06.order.listener;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import ch.hslu.swda.g06.order.Logging.SendLog;
 import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
@@ -13,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import com.google.gson.Gson;
 
+import ch.hslu.swda.g06.order.Logging.SendLog;
 import ch.hslu.swda.g06.order.model.DeleteOrderDto;
 import ch.hslu.swda.g06.order.model.Order;
 import ch.hslu.swda.g06.order.model.OrderArticle;
@@ -37,16 +37,15 @@ public class AnnulateOrderMessageReceiver {
                 DeleteOrderDto.class);
 
         Order order = orderRepository.findById(deleteOrderDto.getOrderId()).orElse(null);
-        if (order == null) {
+        if (order == null || !order.canEdit(deleteOrderDto.getETag())) {
             MessageReceiverUtils.sendDeleteResponse(false, messageProperties, GSON, amqpTemplate);
             return;
         }
-        if (order.canEdit(deleteOrderDto.getETag())) {
-            order.setOrderState(OrderState.Annuliert);
-            order.setCurrentEtag();
-            orderRepository.save(order);
-            SendLog.sendAnnulatedOrder(order, messageProperties.getCorrelationId(), GSON, amqpTemplate);
-        }
+
+        order.setOrderState(OrderState.Annuliert);
+        order.setCurrentEtag();
+        orderRepository.save(order);
+        SendLog.sendAnnulatedOrder(order, messageProperties.getCorrelationId(), GSON, amqpTemplate);
 
         sendOrderDeletedMessage(messageProperties.getCorrelationId(), order.getArticles());
 
