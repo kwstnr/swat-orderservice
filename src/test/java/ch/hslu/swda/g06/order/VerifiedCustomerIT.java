@@ -33,7 +33,6 @@ import com.google.gson.GsonBuilder;
 
 import ch.hslu.swda.g06.order.Logging.model.Log;
 import ch.hslu.swda.g06.order.model.Order;
-import ch.hslu.swda.g06.order.model.OrderArticle;
 import ch.hslu.swda.g06.order.model.Reason;
 import ch.hslu.swda.g06.order.model.VerifyPropertyDto;
 import ch.hslu.swda.g06.order.model.timeprovider.ITimeProvider;
@@ -42,7 +41,7 @@ import ch.hslu.swda.g06.order.model.timeprovider.TimeProviderInstanceCreator;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
 @Testcontainers
-public class VerifiedCustomerIT {
+class VerifiedCustomerIT {
     private static final GsonBuilder gsonBuilder = new GsonBuilder();
     private static Gson gson;
 
@@ -129,9 +128,8 @@ public class VerifiedCustomerIT {
     }
 
     @Test
-    void VerifyCustomerITArticleNotFound() {
-        OrderArticle orderArticle = new OrderArticle("articleId", 1, 1);
-        Order order = new Order("customerId", "employeeId", "filialId", List.of(orderArticle));
+    void VerifyCustomerITCustomerNotFound() {
+        Order order = new Order("customerId", "employeeId", "filialId", List.of());
         mongoTemplate.save(order);
 
         VerifyPropertyDto<String> verifyPropertyDto = VerifyPropertyDto.Builder.<String>builder()
@@ -158,6 +156,40 @@ public class VerifiedCustomerIT {
         assertNotNull(orderFailedLogMessage);
         Log log = gson.fromJson(new String(orderFailedLogMessage.getBody()), Log.class);
         assertEquals("Order failed for customer 'customerId' for reason 'NOT_FOUND'", log.getAction().getAction());
+        assertEquals("order", log.getAction().getEntityName());
+        assertEquals(order.getOrderId(), log.getAction().getEntityId());
+    }
+
+    @Test
+    void VerifyCustomerITMismatchedCustomerId() {
+        Order order = new Order("customerId", "employeeId", "filialId", List.of());
+        mongoTemplate.save(order);
+
+        VerifyPropertyDto<String> verifyPropertyDto = VerifyPropertyDto.Builder.<String>builder()
+                .withOrderId(order.getOrderId())
+                .withPropertyValue("wrong customer")
+                .withVerified(true)
+                .withoutReason();
+
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId("correlationId");
+        messageProperties.setContentType("application/json");
+
+        String body = gson.toJson(verifyPropertyDto);
+        Message message = new Message(body.getBytes(), messageProperties);
+
+        rabbitTemplate.send("order.verifyCustomer", message);
+
+        Message orderConfirmationMessage = rabbitTemplate.receive("mail.confirmation", 500);
+        Message orderBillMessage = rabbitTemplate.receive("bill.create", 500);
+        Message orderFailedLogMessage = rabbitTemplate.receive("log.post", 1000);
+
+        assertNull(orderConfirmationMessage);
+        assertNull(orderBillMessage);
+        assertNotNull(orderFailedLogMessage);
+        Log log = gson.fromJson(new String(orderFailedLogMessage.getBody()), Log.class);
+        assertEquals("Order with id '" + order.getOrderId() + "' failed because of wrong customerId",
+                log.getAction().getAction());
         assertEquals("order", log.getAction().getEntityName());
         assertEquals(order.getOrderId(), log.getAction().getEntityId());
     }
