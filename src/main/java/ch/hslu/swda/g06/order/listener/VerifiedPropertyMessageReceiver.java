@@ -47,12 +47,18 @@ public class VerifiedPropertyMessageReceiver {
                 sendOrderConfirmationMessage(order);
                 sendOrderBillMessage(order);
             }
-        } else if (!verifyPropertyDto.getVerified()) {
+        } else {
             order.setOrderState(OrderState.Failed);
-            if (verifyPropertyDto.getReason() != null && order.getState() != previousOrderState)
-                SendLog.sendOrderFailedForCustomerLog(order, verifyPropertyDto.getPropertyValue(),
-                        (Reason) verifyPropertyDto.getReason(), message.getMessageProperties().getCorrelationId(),
-                        GSON, amqpTemplate);
+            if (!verifyPropertyDto.getVerified()) {
+                if (verifyPropertyDto.getReason() != null && order.getState() != previousOrderState)
+                    SendLog.sendOrderFailedForCustomerLog(order, verifyPropertyDto.getPropertyValue(),
+                            (Reason) verifyPropertyDto.getReason(), message.getMessageProperties().getCorrelationId(),
+                            GSON, amqpTemplate);
+            } else {
+                if (order.getState() != previousOrderState)
+                    SendLog.sendOrderFailedLog(order, message.getMessageProperties().getCorrelationId(), GSON,
+                            amqpTemplate);
+            }
         }
         orderRepository.save(order);
     }
