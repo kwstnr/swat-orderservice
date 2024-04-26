@@ -43,8 +43,27 @@ public class VerifyPropertyDto<T> {
 
     public static class Builder {
         public static <T> OrderId<T> builder() {
-            return orderId -> propertyValue -> verified -> reason -> new VerifyPropertyDto<>(orderId, propertyValue,
-                    verified, reason);
+            return orderId -> propertyValue -> verified -> new BuilderStep<T>(orderId, propertyValue, verified);
+        }
+
+        public static class BuilderStep<T> {
+            private final String orderId;
+            private final T propertyValue;
+            private final boolean verified;
+
+            public BuilderStep(String orderId, T propertyValue, boolean verified) {
+                this.orderId = orderId;
+                this.propertyValue = propertyValue;
+                this.verified = verified;
+            }
+
+            public VerifyPropertyDto<T> withReason(Reason reason) {
+                return new VerifyPropertyDto<>(orderId, propertyValue, verified, reason);
+            }
+
+            public VerifyPropertyDto<T> withoutReason() {
+                return new VerifyPropertyDto<>(orderId, propertyValue, verified);
+            }
         }
 
         public interface OrderId<T> {
@@ -56,11 +75,7 @@ public class VerifyPropertyDto<T> {
         }
 
         public interface Verified<T> {
-            ReasonStage<T> withVerified(boolean verified);
-        }
-
-        public interface ReasonStage<T> {
-            VerifyPropertyDto<T> withReason(Reason reason);
+            BuilderStep<T> withVerified(boolean verified);
         }
     }
 }
