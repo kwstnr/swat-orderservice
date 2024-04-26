@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -32,9 +33,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 
+import ch.hslu.swda.g06.order.Logging.model.Log;
 import ch.hslu.swda.g06.order.model.DeleteOrderDto;
 import ch.hslu.swda.g06.order.model.Order;
+import ch.hslu.swda.g06.order.model.OrderArticle;
+import ch.hslu.swda.g06.order.model.OrderState;
 import ch.hslu.swda.g06.order.model.timeprovider.ITimeProvider;
 import ch.hslu.swda.g06.order.model.timeprovider.TimeProviderInstanceCreator;
 
@@ -155,5 +160,50 @@ class AnnulateOrderIT {
         new String(orderDeletedResponse.getBody()).equals("false");
         assertNull(articlesOrderDeletedResponse);
         assertNull(orderDeletedLogMessage);
+    }
+
+    @Test
+    void AnnulateOrderITWithMatchingETag() {
+        OrderArticle orderArticle = new OrderArticle("articleId", 1, 1);
+        Order order = new Order("customerId", "employeeId", "filialId", List.of(orderArticle));
+        mongoTemplate.save(order);
+
+        DeleteOrderDto deleteOrderDto = DeleteOrderDto.Builder.builder().withOrderId(order.getOrderId())
+                .withETag(order.getEtag());
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId("correlationId");
+        messageProperties.setReplyTo("order.deleted");
+        messageProperties.setContentType("application/json");
+        String body = gson.toJson(deleteOrderDto);
+        Message message = new Message(body.getBytes(), messageProperties);
+
+        rabbitTemplate.send("order.delete", message);
+
+        Message orderDeletedResponse = rabbitTemplate.receive("order.deleted", 5000);
+        Message articlesOrderDeletedResponse = rabbitTemplate.receive("articles.orderDeleted", 5000);
+        Message orderDeletedLogMessage = rabbitTemplate.receive("log.post", 5000);
+
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+            Order deletedOrder = mongoTemplate.findById(order.getOrderId(), Order.class);
+            assertNotNull(deletedOrder);
+            assertEquals(OrderState.Annuliert, deletedOrder.getState());
+        });
+        assertNotNull(orderDeletedResponse);
+        String orderDeletedResponseMessage = new String(orderDeletedResponse.getBody());
+        assertEquals("true", orderDeletedResponseMessage);
+
+        assertNotNull(articlesOrderDeletedResponse);
+        Type listType = new TypeToken<List<OrderArticle>>() {
+        }.getType();
+        List<OrderArticle> articles = gson.fromJson(new String(articlesOrderDeletedResponse.getBody()),
+                listType);
+        assertEquals(1, articles.size());
+        assertEquals(orderArticle.getArticleId(), articles.get(0).getArticleId());
+
+        assertNotNull(orderDeletedLogMessage);
+        Log log = gson.fromJson(new String(orderDeletedLogMessage.getBody()), Log.class);
+        assertEquals("Order annulated", log.getAction().getAction());
+        assertEquals("order", log.getAction().getEntityName());
+        assertEquals(order.getOrderId(), log.getAction().getEntityId());
     }
 }
