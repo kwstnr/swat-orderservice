@@ -128,7 +128,7 @@ public class Order extends BaseDBObject implements Serializable {
     }
 
     private boolean hasNoUnverifiedArticle() {
-        return articles.stream().anyMatch(article -> article.isVerified());
+        return articles.isEmpty() || articles.stream().anyMatch(VerifyableProperty::isVerified);
     }
 
     /**
