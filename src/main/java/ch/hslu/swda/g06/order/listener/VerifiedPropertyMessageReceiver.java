@@ -77,7 +77,9 @@ public class VerifiedPropertyMessageReceiver {
         OrderState previousOrderState = order.getState();
         if (verifyPropertyDto.getVerified() && order.getArticles().stream()
                 .anyMatch(article -> article.getArticleId()
-                        .equals(verifyPropertyDto.getPropertyValue().getArticleId()))) {
+                        .equals(verifyPropertyDto.getPropertyValue().getArticleId())
+                        && article.getAmount() == verifyPropertyDto.getPropertyValue().getAmount()
+                        && article.getUnitPrice() == verifyPropertyDto.getPropertyValue().getUnitPrice())) {
             order.verifyArticleId(verifyPropertyDto.getPropertyValue().getArticleId());
             if (order.getState() == OrderState.Bestätigt && order.getState() != previousOrderState) {
                 sendOrderConfirmationMessage(order);
@@ -93,10 +95,31 @@ public class VerifiedPropertyMessageReceiver {
                             (Reason) verifyPropertyDto.getReason(), message.getMessageProperties().getCorrelationId(),
                             GSON, amqpTemplate);
             } else {
-                if (order.getState() != previousOrderState)
-                    SendLog.sendOrderFailedWrongArticleIdLog(order, message.getMessageProperties().getCorrelationId(),
+                if (order.getState() != previousOrderState && !order.getArticles().stream()
+                        .anyMatch(article -> article.getArticleId()
+                                .equals(verifyPropertyDto.getPropertyValue().getArticleId()))) {
+                    SendLog.sendOrderFailedWrongArticleIdLog(order,
+                            message.getMessageProperties().getCorrelationId(),
                             GSON,
                             amqpTemplate);
+                } else if (order.getState() != previousOrderState && order.getArticles().stream()
+                        .anyMatch(article -> article.getArticleId()
+                                .equals(verifyPropertyDto.getPropertyValue().getArticleId())
+                                && article.getAmount() != verifyPropertyDto.getPropertyValue().getAmount())) {
+                    SendLog.sendOrderFailedWrongArticleAmountLog(order,
+                            message.getMessageProperties().getCorrelationId(),
+                            GSON,
+                            amqpTemplate);
+                } else if (order.getState() != previousOrderState && order.getArticles().stream()
+                        .anyMatch(article -> article.getArticleId()
+                                .equals(verifyPropertyDto.getPropertyValue().getArticleId())
+                                && article.getUnitPrice() != verifyPropertyDto.getPropertyValue().getUnitPrice())) {
+                    SendLog.sendOrderFailedWrongArticleUnitPriceLog(order,
+                            message.getMessageProperties().getCorrelationId(),
+                            GSON,
+                            amqpTemplate);
+                }
+
             }
 
         }

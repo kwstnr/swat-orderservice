@@ -68,6 +68,34 @@ public class SendLog {
                 amqpTemplate);
     }
 
+    public static void sendOrderFailedWrongArticleAmountLog(Order order,
+            String correlationId,
+            Gson gson, AmqpTemplate amqpTemplate) {
+        Action action = new Action(String.format("Order with id '%s' failed because of wrong verified article amount",
+                order.getOrderId()), "order", order.getOrderId());
+        Log log = new Log(action, order.getFilialId());
+
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId(correlationId);
+        messageProperties.setContentType("application/json");
+        MessageReceiverUtils.sendMessage(log, messageProperties, "log.post", gson,
+                amqpTemplate);
+    }
+
+    public static void sendOrderFailedWrongArticleUnitPriceLog(Order order,
+            String correlationId,
+            Gson gson, AmqpTemplate amqpTemplate) {
+        Action action = new Action(String.format("Order with id '%s' failed because of wrong verified article price",
+                order.getOrderId()), "order", order.getOrderId());
+        Log log = new Log(action, order.getFilialId());
+
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId(correlationId);
+        messageProperties.setContentType("application/json");
+        MessageReceiverUtils.sendMessage(log, messageProperties, "log.post", gson,
+                amqpTemplate);
+    }
+
     public static void sendOrderCreated(Order order, String correlationId, Gson gson, AmqpTemplate amqpTemplate) {
         Action action = new Action("Order created", "order", order.getOrderId());
         Log log = new Log(action, order.getFilialId());
