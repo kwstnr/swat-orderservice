@@ -159,4 +159,37 @@ class VerifiedArticleIT {
         assertEquals("order", log.getAction().getEntityName());
         assertEquals(order.getOrderId(), log.getAction().getEntityId());
     }
+
+    @Test
+    void VerifyArticleITInsufficientAmount() {
+        OrderArticle orderArticle = new OrderArticle("articleId", 10, 1);
+        Order order = new Order("customerId", "employeeId", "filialId", List.of(orderArticle));
+        mongoTemplate.save(order);
+
+        VerifyPropertyDto<OrderArticle> verifyPropertyDto = VerifyPropertyDto.Builder.<OrderArticle>builder()
+                .withOrderId(order.getOrderId()).withPropertyValue(orderArticle).withVerified(false)
+                .withReason(Reason.INSUFFICIENT_AMOUNT);
+
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId("correlationId");
+        messageProperties.setContentType("application/json");
+
+        String body = gson.toJson(verifyPropertyDto);
+        Message message = new Message(body.getBytes(), messageProperties);
+
+        rabbitTemplate.send("order.verifyArticle", message);
+
+        Message orderConfirmationMessage = rabbitTemplate.receive("mail.confirmation", 500);
+        Message orderBillMessage = rabbitTemplate.receive("bill.create", 500);
+        Message orderFailedLogMessage = rabbitTemplate.receive("log.post", 1000);
+
+        assertNull(orderConfirmationMessage);
+        assertNull(orderBillMessage);
+        assertNotNull(orderFailedLogMessage);
+        Log log = gson.fromJson(new String(orderFailedLogMessage.getBody()), Log.class);
+        assertEquals("Order failed for articleId 'articleId' for reason 'INSUFFICIENT_AMOUNT'",
+                log.getAction().getAction());
+        assertEquals("order", log.getAction().getEntityName());
+        assertEquals(order.getOrderId(), log.getAction().getEntityId());
+    }
 }
