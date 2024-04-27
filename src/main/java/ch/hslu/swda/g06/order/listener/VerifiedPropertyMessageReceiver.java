@@ -56,7 +56,8 @@ public class VerifiedPropertyMessageReceiver {
                             GSON, amqpTemplate);
             } else {
                 if (order.getState() != previousOrderState)
-                    SendLog.sendOrderFailedLog(order, message.getMessageProperties().getCorrelationId(), GSON,
+                    SendLog.sendOrderFailedWrongCustomerIdLog(order, message.getMessageProperties().getCorrelationId(),
+                            GSON,
                             amqpTemplate);
             }
         }
@@ -74,7 +75,11 @@ public class VerifiedPropertyMessageReceiver {
             return;
         }
         OrderState previousOrderState = order.getState();
-        if (verifyPropertyDto.getVerified()) {
+        if (verifyPropertyDto.getVerified() && order.getArticles().stream()
+                .anyMatch(article -> article.getArticleId()
+                        .equals(verifyPropertyDto.getPropertyValue().getArticleId())
+                        && article.getAmount() == verifyPropertyDto.getPropertyValue().getAmount()
+                        && article.getUnitPrice() == verifyPropertyDto.getPropertyValue().getUnitPrice())) {
             order.verifyArticleId(verifyPropertyDto.getPropertyValue().getArticleId());
             if (order.getState() == OrderState.Bestätigt && order.getState() != previousOrderState) {
                 sendOrderConfirmationMessage(order);
@@ -84,10 +89,39 @@ public class VerifiedPropertyMessageReceiver {
             orderRepository.save(order);
         } else {
             order.setOrderState(OrderState.Failed);
-            if (verifyPropertyDto.getReason() != null && order.getState() != previousOrderState)
-                SendLog.sendOrderFailedForArticlesLog(order, (OrderArticle) verifyPropertyDto.getPropertyValue(),
-                        (Reason) verifyPropertyDto.getReason(), message.getMessageProperties().getCorrelationId(),
-                        GSON, amqpTemplate);
+            if (!verifyPropertyDto.getVerified()) {
+                if (verifyPropertyDto.getReason() != null && order.getState() != previousOrderState)
+                    SendLog.sendOrderFailedForArticlesLog(order, verifyPropertyDto.getPropertyValue(),
+                            (Reason) verifyPropertyDto.getReason(), message.getMessageProperties().getCorrelationId(),
+                            GSON, amqpTemplate);
+            } else {
+                if (order.getState() != previousOrderState && !order.getArticles().stream()
+                        .anyMatch(article -> article.getArticleId()
+                                .equals(verifyPropertyDto.getPropertyValue().getArticleId()))) {
+                    SendLog.sendOrderFailedWrongArticleIdLog(order,
+                            message.getMessageProperties().getCorrelationId(),
+                            GSON,
+                            amqpTemplate);
+                } else if (order.getState() != previousOrderState && order.getArticles().stream()
+                        .anyMatch(article -> article.getArticleId()
+                                .equals(verifyPropertyDto.getPropertyValue().getArticleId())
+                                && article.getAmount() != verifyPropertyDto.getPropertyValue().getAmount())) {
+                    SendLog.sendOrderFailedWrongArticleAmountLog(order,
+                            message.getMessageProperties().getCorrelationId(),
+                            GSON,
+                            amqpTemplate);
+                } else if (order.getState() != previousOrderState && order.getArticles().stream()
+                        .anyMatch(article -> article.getArticleId()
+                                .equals(verifyPropertyDto.getPropertyValue().getArticleId())
+                                && article.getUnitPrice() != verifyPropertyDto.getPropertyValue().getUnitPrice())) {
+                    SendLog.sendOrderFailedWrongArticleUnitPriceLog(order,
+                            message.getMessageProperties().getCorrelationId(),
+                            GSON,
+                            amqpTemplate);
+                }
+
+            }
+
         }
         orderRepository.save(order);
     }
