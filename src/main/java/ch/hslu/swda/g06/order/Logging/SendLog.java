@@ -40,10 +40,24 @@ public class SendLog {
                 amqpTemplate);
     }
 
-    public static void sendOrderFailedLog(Order order,
+    public static void sendOrderFailedWrongCustomerIdLog(Order order,
             String correlationId,
             Gson gson, AmqpTemplate amqpTemplate) {
         Action action = new Action(String.format("Order with id '%s' failed because of wrong customerId",
+                order.getOrderId()), "order", order.getOrderId());
+        Log log = new Log(action, order.getFilialId());
+
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId(correlationId);
+        messageProperties.setContentType("application/json");
+        MessageReceiverUtils.sendMessage(log, messageProperties, "log.post", gson,
+                amqpTemplate);
+    }
+
+    public static void sendOrderFailedWrongArticleIdLog(Order order,
+            String correlationId,
+            Gson gson, AmqpTemplate amqpTemplate) {
+        Action action = new Action(String.format("Order with id '%s' failed because of wrong verified articleId",
                 order.getOrderId()), "order", order.getOrderId());
         Log log = new Log(action, order.getFilialId());
 
