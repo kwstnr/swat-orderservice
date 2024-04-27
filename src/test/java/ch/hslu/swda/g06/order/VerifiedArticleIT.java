@@ -407,4 +407,61 @@ class VerifiedArticleIT {
 
         assertNull(orderFailedLogMessage);
     }
+
+    @Test
+    void VerifyArticleITOrderConfirmationMultipleCalls() {
+        OrderArticle orderArticleToConfirm = new OrderArticle("articleToConfirmId", 10, 1);
+        OrderArticle secondOrderArticleToConfirm = new OrderArticle("unconfirmedArticleId", 10, 1);
+        Order order = new Order("customerId", "employeeId", "filialId",
+                List.of(orderArticleToConfirm, secondOrderArticleToConfirm));
+        order.verifyCustomerId();
+        mongoTemplate.save(order);
+
+        VerifyPropertyDto<OrderArticle> verifyPropertyDto1 = VerifyPropertyDto.Builder.<OrderArticle>builder()
+                .withOrderId(order.getOrderId()).withPropertyValue(orderArticleToConfirm).withVerified(true)
+                .withoutReason();
+
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId("correlationId");
+        messageProperties.setContentType("application/json");
+
+        String body1 = gson.toJson(verifyPropertyDto1);
+        Message message1 = new Message(body1.getBytes(), messageProperties);
+
+        rabbitTemplate.send("order.verifyArticle", message1);
+
+        VerifyPropertyDto<OrderArticle> verifyPropertyDto2 = VerifyPropertyDto.Builder.<OrderArticle>builder()
+                .withOrderId(order.getOrderId()).withPropertyValue(
+                        secondOrderArticleToConfirm)
+                .withVerified(true)
+                .withoutReason();
+
+        String body2 = gson.toJson(verifyPropertyDto2);
+        Message message2 = new Message(body2.getBytes(), messageProperties);
+
+        rabbitTemplate.send("order.verifyArticle", message2);
+
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+            Order updatedOrder = mongoTemplate.findById(order.getOrderId(), Order.class);
+            assertNotNull(updatedOrder);
+            assertEquals(OrderState.Bestätigt, updatedOrder.getState());
+        });
+
+        Message orderConfirmationMessage = rabbitTemplate.receive("mail.confirmation", 500);
+        Message orderBillMessage = rabbitTemplate.receive("bill.create", 500);
+        Message orderFailedLogMessage = rabbitTemplate.receive("log.post", 500);
+
+        assertNotNull(orderConfirmationMessage);
+        Order confirmedOrder = gson.fromJson(new String(orderConfirmationMessage.getBody()), Order.class);
+        assertEquals(order.getOrderId(), confirmedOrder.getOrderId());
+        assertEquals(OrderState.Bestätigt, confirmedOrder.getState());
+
+        assertNotNull(orderBillMessage);
+        Order billedOrder = gson.fromJson(new String(orderBillMessage.getBody()),
+                Order.class);
+        assertEquals(order.getOrderId(), billedOrder.getOrderId());
+        assertEquals(OrderState.Bestätigt, billedOrder.getState());
+
+        assertNull(orderFailedLogMessage);
+    }
 }
