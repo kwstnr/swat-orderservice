@@ -1,11 +1,13 @@
 package ch.hslu.swda.g06.order;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +36,7 @@ import com.google.gson.GsonBuilder;
 import ch.hslu.swda.g06.order.Logging.model.Log;
 import ch.hslu.swda.g06.order.model.Order;
 import ch.hslu.swda.g06.order.model.OrderArticle;
+import ch.hslu.swda.g06.order.model.OrderState;
 import ch.hslu.swda.g06.order.model.Reason;
 import ch.hslu.swda.g06.order.model.VerifyPropertyDto;
 import ch.hslu.swda.g06.order.model.timeprovider.ITimeProvider;
@@ -158,6 +161,12 @@ class VerifiedArticleIT {
         assertEquals("Order failed for articleId 'articleId' for reason 'NOT_FOUND'", log.getAction().getAction());
         assertEquals("order", log.getAction().getEntityName());
         assertEquals(order.getOrderId(), log.getAction().getEntityId());
+
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+            Order updatedOrder = mongoTemplate.findById(order.getOrderId(), Order.class);
+            assertNotNull(updatedOrder);
+            assertEquals(OrderState.Failed, updatedOrder.getState());
+        });
     }
 
     @Test
@@ -191,5 +200,50 @@ class VerifiedArticleIT {
                 log.getAction().getAction());
         assertEquals("order", log.getAction().getEntityName());
         assertEquals(order.getOrderId(), log.getAction().getEntityId());
+
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+            Order updatedOrder = mongoTemplate.findById(order.getOrderId(), Order.class);
+            assertNotNull(updatedOrder);
+            assertEquals(OrderState.Failed, updatedOrder.getState());
+        });
+    }
+
+    @Test
+    void VerifyArticleITMismatchedArticleId() {
+        OrderArticle orderArticle = new OrderArticle("articleId", 10, 1);
+        Order order = new Order("customerId", "employeeId", "filialId", List.of(orderArticle));
+        mongoTemplate.save(order);
+
+        VerifyPropertyDto<OrderArticle> verifyPropertyDto = VerifyPropertyDto.Builder.<OrderArticle>builder()
+                .withOrderId(order.getOrderId()).withPropertyValue(new OrderArticle("otherArticleId", 10, 1))
+                .withVerified(true).withoutReason();
+
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setCorrelationId("correlationId");
+        messageProperties.setContentType("application/json");
+
+        String body = gson.toJson(verifyPropertyDto);
+        Message message = new Message(body.getBytes(), messageProperties);
+
+        rabbitTemplate.send("order.verifyArticle", message);
+
+        Message orderConfirmationMessage = rabbitTemplate.receive("mail.confirmation", 500);
+        Message orderBillMessage = rabbitTemplate.receive("bill.create", 500);
+        Message orderFailedLogMessage = rabbitTemplate.receive("log.post", 1000);
+
+        assertNull(orderConfirmationMessage);
+        assertNull(orderBillMessage);
+        assertNotNull(orderFailedLogMessage);
+        Log log = gson.fromJson(new String(orderFailedLogMessage.getBody()), Log.class);
+        assertEquals("Order with id '" + order.getOrderId() + "' failed because of wrong verified articleId",
+                log.getAction().getAction());
+        assertEquals("order", log.getAction().getEntityName());
+        assertEquals(order.getOrderId(), log.getAction().getEntityId());
+
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+            Order updatedOrder = mongoTemplate.findById(order.getOrderId(), Order.class);
+            assertNotNull(updatedOrder);
+            assertEquals(OrderState.Failed, updatedOrder.getState());
+        });
     }
 }
