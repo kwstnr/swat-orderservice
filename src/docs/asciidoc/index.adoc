@@ -1,40 +1,38 @@
-= Dokumentation Beispiel
-Vorname, Name <vorname.name@hslu.ch>
+= SWAT Orderservice
+Kevin, Wüstner <kevinwuestner5@gmail.com>
 V0.0.1, 2023-09-07
 :imagesdir: ./images
 :toc:
 :toc-title: Inhaltsverzeichnis
 :toclevels: 1
 
-== Einführung
-Sie haben die Möglichkeit eine Dokumentation mit https://asciidoc.org/ zu schreiben.
-Diese wird in HTML5 aufbereitet, oder steht auch als link:index.pdf[PDF] zur Verfügung.
+== Introduction
+This Repository contains the Java Project "orderservice" which is used for the module "Software Architecture and Techniques" at the Lucerne University of Applied Sciences.
+It contains the "orderservice" which was developed during the module "Software Development and Architecture" and is used as a refactoring project in SWAT.
+The goal is to increase code quality, stability, maintainability and many other aspects of an existing codebase and adopt inputs given during the lectures.
 
-== Kapitel 1: Titel
-Beispiel für ein Kapitel.
+== System Context
+The orderservice represents a single microservice which was used within a bigger system. The System was a "Filialverwaltung" where a shop could manage their shops at different locations, their warehouses including the articles and orders made by customers.
+This service handles the creation and maintainement of orders. It is able to create, validate and annulate orders.
+It subscribes to RabbitMQ Queues on to which the other services can publish messages and gives responses to requested response queues.
+The data is persisted using a MongoDb Database.
 
-== Kapitel 2: tbd
-tbd
+== API
+=== Create Order
+A order can be created by pushing a message to the queue `order.post` with a `CreateOrderDto` containing all the information needed for the order.
+The created order is then returned to the queue, which is spessified in the message properties.
 
-== Appendix: Beispiele
-Mann kann ganz einfach Bilder integrieren:
+It will create an order of state "Bestellt" and will send verify messages to other services to verify articles and users that are part of the order.
 
-image::HSLU-Logo-21-klein.png[]
+=== Annulate Order
+A order can be annulated by pushing a message to the queue `order.delete` with a `DeleteOrderDto` containing all the information needed for the order to be annulated.
+The order will be set to the state "Annuliert"
 
-Und wichtige Textstellen mit vierschiedenen Levels auszeichnen:
+=== Get Order
+Orders can be fetched by pushing Messages to the queues `order.get` or `order.getAll`
 
-WARNING: Das ist eine Warnung!
+== Verification of Orders
+Articles and users of an order are verified asynchronously by sending messages to other services. Their responses determine if a property can be verified or not.
+If all properties of an order are verified, the order will reach the state "Bestätigt" and bill and confirmations are sent to other services.
 
-TIP: Das ist ein Tipp!
-
-IMPORTANT: Das ist wichtig!
-
-CAUTION: Achtung, das ist gefährlich!
-
-NOTE: Das ist ein kleiner Hinweis.
-
-Und man kann auch zitieren:
-
-[quote,Albert Einstein]
-Ein Mensch der keine Fehler macht, hat nie etwas neues ausprobiert.
 
