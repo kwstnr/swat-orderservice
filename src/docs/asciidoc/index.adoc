@@ -1,6 +1,6 @@
 = SWAT Orderservice
-Kevin, Wüstner <kevinwuestner5@gmail.com>
-V0.0.1, 2023-09-07
+Kevin Wüstner <kevinwuestner5@gmail.com>
+V0.0.2, 2024-05-09
 :imagesdir: ./images
 :toc:
 :toc-title: Inhaltsverzeichnis
@@ -35,4 +35,29 @@ Orders can be fetched by pushing Messages to the queues `order.get` or `order.ge
 Articles and users of an order are verified asynchronously by sending messages to other services. Their responses determine if a property can be verified or not.
 If all properties of an order are verified, the order will reach the state "Bestätigt" and bill and confirmations are sent to other services.
 
+== Architecture Design Records
+Architecture design decisions can be documented using the following template and appended to this chapter.
+
+[cols="1,4", options="header"]
+|===
+| Section | Description
+
+| Title
+| A short, descriptive title for the architectural decision.
+
+| Date
+| The Date of the decision.
+
+| Status
+| The current status of the decision (e.g., proposed, accepted, rejected, deprecated, superseded).
+
+| Context
+| The circumstances that led to the architectural decision. Include any relevant technical or business requirements, constraints, or objectives.
+
+| Decision
+| The decision itself, including alternatives considered and a clear explanation of the chosen approach.
+
+| Consequences
+| The positive and negative consequences of the decision. Include the impact on different aspects such as scalability, maintainability, cost, and performance.
+|===
 
