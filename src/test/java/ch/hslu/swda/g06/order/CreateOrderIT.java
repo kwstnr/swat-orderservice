@@ -156,6 +156,7 @@ class CreateOrderIT {
         rabbitTemplate.convertAndSend("swda", "order.post", message);
 
         Message orderCreatedMessage = rabbitTemplate.receive("order.created", 5000);
+        assertNotNull(orderCreatedMessage);
         Order createdOrder = gson.fromJson(new String(orderCreatedMessage.getBody(), StandardCharsets.UTF_8),
                 Order.class);
 
@@ -218,12 +219,11 @@ class CreateOrderIT {
                 "ArticleId should match");
         assertEquals(article.getAmount(), verifyPropertyDto.getPropertyValue().get(0).getAmount(),
                 "Amount should match");
-        assertEquals(article.getUnitPrice(), verifyPropertyDto.getPropertyValue().get(0).getUnitPrice(), "UnitPrice should match");
+        assertEquals(article.getUnitPrice(), verifyPropertyDto.getPropertyValue().get(0).getUnitPrice(),
+                "UnitPrice should match");
     }
-     
 
-    
-     @Test
+    @Test
     void createOrderITLogMessageSent() {
         MessageProperties messageProperties = new MessageProperties();
         messageProperties.setCorrelationId("correlationId");
