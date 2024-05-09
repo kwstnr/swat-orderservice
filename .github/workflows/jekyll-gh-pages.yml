@@ -30,10 +30,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Convert AsciiDoc to HTML
+        run: |
+          sudo gem install asciidoctor asciidoctor-diagram
+          asciidoctor -b html5 -r asciidoctor-diagram -D src/docs/_site src/docs/asciidoc/*.adoc
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
-          source: ./src/docs
+          source: ./src/docs/_site
           destination: ./docs/_site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
