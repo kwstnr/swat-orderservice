@@ -1,4 +1,4 @@
-package ch.hslu.swda.g06.order;
+package ch.hslu.swda.g06.order.Integration;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;

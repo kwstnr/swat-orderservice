@@ -1,4 +1,4 @@
-package ch.hslu.swda.g06.order;
+package ch.hslu.swda.g06.order.Integration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
