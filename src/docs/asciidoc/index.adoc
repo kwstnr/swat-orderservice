@@ -64,3 +64,38 @@ Architecture design decisions can be documented using the following template and
 == Classdiagram
 image::classdiagram.drawio.png[]
 
+== SWAT - Work done
+=== Testing
+Increased Code Coverage by adding integration tests for all listeners.
+
+this was the biggest part of the work done. because I didn't want to break the code by refactoring without realising it (about 3k additions).
+
+Some small changes where done during the testing like the builders for example.
+
+*Code Coverage before SWAT*
+
+checked out initial commit
+
+image::coverage-before.png[]
+
+*Code Coverage after SWAT*
+
+checked out main branch
+
+image::coverage-after.png[]
+
+=== Refactoring
+3e2b50abe88cc119f45f9dbbef3a5b4a662bf6fe feat(base-db-object): add abstraction layer for time-provider
+
+11bbdc192bd8c050527002894a2cd904d27b5919 refactor(base-db-object): remove public modifier due to sonarlint
+
+17bbed9209c817d06ff15f21500d6a5e50cf7362 feat(delete-order-dto): create builder for delete-order-dto
+
+546095d7f6a52883e88df86a2a9cd5f79bdaa5ba feat(verify-property-dto): add verify-property-dto-builder
+
+edbc2846317d38eb5542031d45cf746113917294 fix(verify-property-dto): add optional reason to builder
+
+
+
+
+
