@@ -61,3 +61,6 @@ Architecture design decisions can be documented using the following template and
 | The positive and negative consequences of the decision. Include the impact on different aspects such as scalability, maintainability, cost, and performance.
 |===
 
+== Classdiagram
+image::classdiagram.drawio.png[]
+
