@@ -74,13 +74,13 @@ Some small changes where done during the testing like the builders for example.
 
 *Code Coverage before SWAT*
 
-checked out initial commit
+checked out initial commit.
 
 image::coverage-before.png[]
 
 *Code Coverage after SWAT*
 
-checked out main branch
+checked out main branch.
 
 image::coverage-after.png[]
 
